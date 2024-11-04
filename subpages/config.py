@@ -10,7 +10,7 @@ if "points" not in st.session_state:
 if "prev_point" not in st.session_state:
     st.session_state.prev_point = None
 if "configured" not in st.session_state:
-    st.session_state.configured = True
+    st.session_state.configured = False
 if "template" not in st.session_state:
     st.session_state.template = None
 
@@ -34,7 +34,7 @@ if not st.session_state.configured:
         img_file_buffer.image(image, use_column_width=True)
         if st.button("Capture"):
             break
-        
+
     # img_file_buffer = st.camera_input("Take a picture")
     # img_file_buffer = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
