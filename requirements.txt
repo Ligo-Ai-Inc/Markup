@@ -2,3 +2,4 @@ streamlit
 st-clickable-images
 pillow
 streamlit-image-coordinates
+opencv-python
