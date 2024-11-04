@@ -3,3 +3,4 @@ st-clickable-images
 pillow
 streamlit-image-coordinates
 opencv-python
+streamlit-camera-input-live
