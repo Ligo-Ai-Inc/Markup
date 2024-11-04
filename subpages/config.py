@@ -18,8 +18,8 @@ if configure:
     st.session_state.configured = False
 
 if not st.session_state.configured:
-    # img_file_buffer = st.camera_input("Take a picture")
-    img_file_buffer = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+    img_file_buffer = st.camera_input("Take a picture")
+    # img_file_buffer = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
     if img_file_buffer is not None:
         org_picture = Image.open(img_file_buffer)
