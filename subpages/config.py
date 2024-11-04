@@ -30,9 +30,10 @@ if "template" not in st.session_state:
 if not st.session_state.configured:
     image = camera_input_live()
     img_file_buffer = st.empty()
+    capture_btn = st.button("Capture")
     while True:
         img_file_buffer.image(image, use_column_width=True)
-        if st.button("Capture"):
+        if capture_btn:
             break
 
     # img_file_buffer = st.camera_input("Take a picture")
