@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
-from PIL import Image
+from PIL import Image, ImageOps
 import numpy as np
 
 if "points" not in st.session_state:
@@ -31,6 +31,12 @@ if not st.session_state.configured:
 
     if img_file_buffer is not None:
         org_picture = Image.open(img_file_buffer)
+        org_picture = ImageOps.exif_transpose(org_picture)
+        data = list(org_picture.getdata())
+        org_picture_without_exif = Image.new(org_picture.mode, org_picture.size)
+        org_picture_without_exif.putdata(data)
+        org_picture = org_picture_without_exif
+
         org_picture = np.array(org_picture)
         picture = org_picture.copy()
         scale_factor = 1080 / org_picture.shape[1]
@@ -74,11 +80,15 @@ if not st.session_state.configured:
 
 if st.session_state.template is not None:
     # st.image(st.session_state.template, use_column_width=True)
-    h, w = st.session_state.template.shape[:2]
+    tmp = st.session_state.template.copy()
+    if camera_orientation == "Portrait":
+        tmp = cv2.rotate(st.session_state.template, cv2.ROTATE_90_CLOCKWISE)
+
+    h, w = tmp.shape[:2]
     row_images = []
     interval = h // nrow
     for i in range(nrow):
-        img = st.session_state.template[i*interval:(i+1)*interval, :]
+        img = tmp[i*interval:(i+1)*interval, :]
         row_images.append(img)
         st.image(img, use_column_width=True)
     st.session_state.row_images = row_images
