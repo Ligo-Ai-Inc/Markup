@@ -3,7 +3,6 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
 from PIL import Image
 import numpy as np
-from camera_input_live import camera_input_live
 
 if "points" not in st.session_state:
     st.session_state.points = []
@@ -34,11 +33,13 @@ if not st.session_state.configured:
         org_picture = Image.open(img_file_buffer)
         org_picture = np.array(org_picture)
         picture = org_picture.copy()
+        scale_factor = 1080 / org_picture.shape[1]
+        picture = cv2.resize(picture, (1080, int(picture.shape[0] * scale_factor)))
 
-        srcs = np.array([[int(x*picture.shape[1]), int(y*picture.shape[0])] for x, y in st.session_state.points]).astype(np.int32)
-        srcs = srcs.reshape((-1, 1, 2))
-        if len(srcs) > 1:
-            picture = cv2.polylines(picture, [srcs], isClosed=True, color=(0, 255, 0), thickness=10)
+        vis_points = np.array([[int(x*picture.shape[1]), int(y*picture.shape[0])] for x, y in st.session_state.points]).astype(np.int32)
+        vis_points = vis_points.reshape((-1, 1, 2))
+        if len(vis_points) > 1:
+            picture = cv2.polylines(picture, [vis_points], isClosed=True, color=(0, 255, 0), thickness=10)
 
         value = streamlit_image_coordinates(
             picture,
@@ -59,6 +60,9 @@ if not st.session_state.configured:
         else:
             w = 640
             h = 400
+
+        srcs = np.array([[int(x*org_picture.shape[1]), int(y*org_picture.shape[0])] for x, y in st.session_state.points]).astype(np.int32)
+        srcs = srcs.reshape((-1, 1, 2))
         dsts = np.array([[0, 0], [w, 0], [w, h], [0, h]]).astype(np.int32)
 
         if len(srcs) == 4:
