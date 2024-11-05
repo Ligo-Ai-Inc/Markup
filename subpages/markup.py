@@ -12,6 +12,12 @@ if "data" not in st.session_state:
     st.session_state.data = {}
 if "pre_loaded" not in st.session_state:
     st.session_state.pre_loaded = False
+if "nrow" not in st.session_state:
+    st.session_state.nrow = 0
+if "prev_click" not in st.session_state:
+    st.session_state.prev_click = None
+if "choossen" not in st.session_state:
+    st.session_state.choossen = set()
 
 list_categories = ["rock <10cm", "rock >10cm", "crumbly", "block"]
 color_map = {
@@ -25,7 +31,7 @@ box_length = st.number_input("Box length", min_value=0, max_value=1000, value=60
 col1, col2 = st.columns(2)
 box_from = col1.number_input("Box from", min_value=0.0, max_value=1000.0, value=0.000)
 box_to = col2.number_input("Box to", min_value=0.0, max_value=1000.0, value=0.000)
-nrow = st.number_input("Number of rows", min_value=1, max_value=5, value=5)
+hole_id = st.text_input("Hole ID", value="")
 
 pre_saved_data = {}
 if os.path.exists("save_records.json"):
@@ -54,7 +60,7 @@ def gen_images(rock_lengths, categories):
     return list_images
 
 list_clicks = []
-for i in range(nrow):
+for i in range(st.session_state.nrow):
     col1, col2 = st.columns([0.2, 0.8])
     btn = col1.button("Measure row {}".format(i+1))   
     measure_btns.append(btn)
@@ -68,37 +74,30 @@ for i in range(nrow):
                 list_images,
                 titles=[f"{i}_{j}" for j in range(len(list_images))],
                 div_style={"display": "flex", "justify-content": "space-between", "background-color": "white", "width": "100%"},
-                img_style={"margin": "5px", "height": "20px"},
+                # img_style={"margin": "5px", "height": "20px", "object-fit": "cover", "flex-grow": 1},
+                img_style={"margin": "5px", "height": "20px", "object-fit": "cover", "flex-grow": 0},
             )
             list_clicks.append(clicked)
+            if "row_images" in st.session_state:
+                st.image(st.session_state.row_images[i], use_column_width=True)
 
 for row, click in enumerate(list_clicks):
-    if click != -1:
-        rock_lengths, categories = st.session_state.data[row]
-        st.write(f"Row {row+1} rock {click+1}")
-        category_index = list_categories.index(categories[click])
-        st.selectbox("Category", list_categories, key=f"category_{row}_{click}", index=category_index)
-
-change_btn = st.button("Change")
-if change_btn:
-    for row, (rock_lengths, categories) in st.session_state.data.items():
-        for i, category in enumerate(categories):
-            if f"category_{row}_{i}" in st.session_state:
-                categories[i] = st.session_state[f"category_{row}_{i}"]
-        st.session_state.data[row] = [rock_lengths, categories]
-        pre_saved_data[row] = [rock_lengths, categories]
-        
-    with open("save_records.json", "w") as f:
-        json.dump(pre_saved_data, f)
-    st.rerun()
+    if click != -1 and f"{row}_{click}" != st.session_state.prev_click:
+        st.session_state.prev_click = f"{row}_{click}"
+        st.session_state.choossen.add(f"{row}_{click}")
+        # rock_lengths, categories = st.session_state.data[row]
+        # st.write(f"Row {row+1} rock {click+1}")
+        # category_index = list_categories.index(categories[click])
+        # st.selectbox("Category", list_categories, key=f"category_{row}_{click}", index=category_index)
 
 def load_measurement_data(measure_data):
     lines = measure_data.split("\n")
     list_measurement_values = []
-    for line in lines[:-1]:
+    for line in lines[:]:
         value = float(line.split(":")[-1].strip())
         list_measurement_values.append(value)
-    categories = lines[-1].strip().split(",")
+    # categories = lines[-1].strip().split(",")
+    categories = ["rock >10cm"] * len(list_measurement_values)
     rock_lengths = [abs(list_measurement_values[i+1] - list_measurement_values[i]) * 100 for i in range(len(list_measurement_values)-1)]
     return rock_lengths, categories
 
@@ -123,3 +122,20 @@ if not st.session_state.pre_loaded:
 for i, btn in enumerate(measure_btns):
     if btn:
         input_measurement(i)
+
+if len(st.session_state.choossen) > 0:
+    st.write(st.session_state.choossen)
+    category = st.selectbox("Category", list_categories)
+    change_btn = st.button("Change")
+    if change_btn:
+        for choosen in st.session_state.choossen:
+            row, click = map(int, choosen.split("_"))
+            rock_lengths, categories = st.session_state.data[row]
+            categories[click] = category
+            st.session_state.data[row] = [rock_lengths, categories]
+            pre_saved_data[row] = [rock_lengths, categories]
+        
+        st.session_state.choossen = set()
+        with open("save_records.json", "w") as f:
+            json.dump(pre_saved_data, f)
+        st.rerun()
