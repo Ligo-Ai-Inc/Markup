@@ -15,7 +15,9 @@ if "data" not in st.session_state:
 if "pre_loaded" not in st.session_state:
     st.session_state.pre_loaded = False
 if "nrow" not in st.session_state:
-    st.session_state.nrow = 1
+    st.session_state.nrow = 5
+if "box_length" not in st.session_state:
+    st.session_state.box_length = 60
 if "prev_click" not in st.session_state:
     st.session_state.prev_click = None
 if "choossen" not in st.session_state:
@@ -38,13 +40,6 @@ def add_hole_id():
         os.makedirs(os.path.join(scan_folder, id.upper()), exist_ok=True)
         st.rerun()
 
-box_length = st.number_input("Box length", min_value=0, max_value=1000, value=60) # cm
-col1, col2 = st.columns(2)
-box_from = col1.number_input("Box from", min_value=0.0, max_value=1000.0, value=0.000)
-box_to = col2.number_input("Box to", min_value=0.0, max_value=1000.0, value=0.000)
-nrow = st.number_input("Number of rows", min_value=1, max_value=5, value=st.session_state.nrow)
-st.session_state.nrow = nrow
-
 folders = [f for f in os.listdir(scan_folder) if os.path.isdir(os.path.join(scan_folder, f))]
 hole_id_list = sorted(folders, key=lambda x: os.path.getctime(os.path.join(scan_folder, x)))
 hole_id_idx = len(hole_id_list) - 1
@@ -56,7 +51,22 @@ if hole_id == None:
 else:
     st.session_state.hole_id = hole_id
 
+st.markdown(f"## Hole ID: {hole_id}")
+core_direction = st.radio("Direction", options=["Count Up", "Count Down"], horizontal=True, label_visibility="collapsed")
+is_print = st.checkbox("Print barcode", value=False)
+
+# box_length = st.number_input("Box length", min_value=0, max_value=1000, value=60) # cm
+box_length = st.session_state.box_length
+col1, col2 = st.columns(2)
+box_from = col1.number_input("Box from", min_value=0.0, max_value=1000.0, value=st.session_state.get("box_from", 0.000))
+box_to = col2.number_input("Box to", min_value=0.0, max_value=1000.0, value=st.session_state.get("box_to", 0.000))
+
+# nrow = st.number_input("Number of rows", min_value=1, max_value=5, value=st.session_state.nrow)
+# st.session_state.nrow = nrow
+
 add_holeID_btn = st.sidebar.button("Add Hole ID")
+sync_btn = st.sidebar.button("Sync")
+usb_export = st.sidebar.button("USB Export")
 if add_holeID_btn:
     add_hole_id()
 
@@ -76,6 +86,9 @@ if hole_id != None:
                     break
     
     if valid:
+        st.session_state.box_from = box_from
+        st.session_state.box_to = box_to
+
         os.makedirs(f"{scan_folder}/{hole_id}/{box_from}_{box_to}", exist_ok=True)
         pre_saved_data = {}
         if os.path.exists(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json"):
@@ -106,6 +119,8 @@ if hole_id != None:
 
             return list_images
 
+        save_btn = st.button("Save")
+
         list_clicks = []
         for i in range(st.session_state.nrow):
             col1, col2 = st.columns([0.2, 0.8])
@@ -120,7 +135,7 @@ if hole_id != None:
                     clicked = clickable_images(
                         list_images,
                         titles=[f"{i}_{j}" for j in range(len(list_images))],
-                        div_style={"display": "flex", "background-color": "white", "gap": "0px"},
+                        div_style={"display": "flex", "justify-content": "space-between", "background-color": "white", "gap": "0px"},
                         img_style={"margin": "0px", "height": "20px"},
                     )
                     list_clicks.append(clicked)
@@ -131,10 +146,6 @@ if hole_id != None:
             if click != -1 and f"{row}_{click}" != st.session_state.prev_click:
                 st.session_state.prev_click = f"{row}_{click}"
                 st.session_state.choossen.add(f"{row}_{click}")
-                # rock_lengths, categories = st.session_state.data[row]
-                # st.write(f"Row {row+1} rock {click+1}")
-                # category_index = list_categories.index(categories[click])
-                # st.selectbox("Category", list_categories, key=f"category_{row}_{click}", index=category_index)
 
         def load_measurement_data(measure_data):
             lines = measure_data.split("\n")
