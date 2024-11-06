@@ -139,8 +139,9 @@ if hole_id != None:
                         img_style={"margin": "0px", "height": "20px"},
                     )
                     list_clicks.append(clicked)
-                    if "row_images" in st.session_state:
-                        st.image(st.session_state.row_images[i], use_column_width=True)
+
+            if "row_images" in st.session_state:
+                col2.image(st.session_state.row_images[i], use_column_width=True)
 
         for row, click in enumerate(list_clicks):
             if click != -1 and f"{row}_{click}" != st.session_state.prev_click:
