@@ -25,11 +25,11 @@ if "choossen" not in st.session_state:
 
 list_categories = ["empty", "rock <10cm", "rock >10cm", "crumbly", "block"]
 color_map = {
-    "empty": "#785353",
-    "rock <10cm": "#454b54",
-    "rock >10cm": "#1DA0A5",
-    "crumbly": "#f062fc",
-    "block": "#f28a35"
+    "empty": "#ff6361",
+    "rock <10cm": "#58508d",
+    "rock >10cm": "#003f5c",
+    "crumbly": "#bc5090",
+    "block": "#ffa600"
 }
 
 @st.dialog("Add new Hole ID")
