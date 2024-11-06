@@ -20,6 +20,8 @@ if "box_length" not in st.session_state:
     st.session_state.box_length = 60
 if "prev_click" not in st.session_state:
     st.session_state.prev_click = None
+if "prev_row_click" not in st.session_state:
+    st.session_state.prev_row_click = [-1] * st.session_state.nrow
 if "choossen" not in st.session_state:
     st.session_state.choossen = set()
 
@@ -145,9 +147,14 @@ if hole_id != None:
                 col2.image(st.session_state.row_images[i], use_column_width=True)
 
         for row, click in enumerate(list_clicks):
-            if click != -1 and f"{row}_{click}" != st.session_state.prev_click:
-                st.session_state.prev_click = f"{row}_{click}"
+            st.write(f"Row {row+1}: {click}", st.session_state.prev_row_click[row])
+            if click != st.session_state.prev_row_click[row]:
+                st.session_state.prev_row_click[row] = click
                 st.session_state.choossen.add(f"{row}_{click}")
+
+            # if click != -1 and f"{row}_{click}" != st.session_state.prev_click:
+                # st.session_state.prev_click = f"{row}_{click}"
+                # st.session_state.choossen.add(f"{row}_{click}")
 
         def load_measurement_data(measure_data):
             lines = measure_data.split("\n")
@@ -189,7 +196,6 @@ if hole_id != None:
             clear_btn = st.button("Clear")
             if clear_btn:
                 st.session_state.choossen = set()
-                st.session_state.prev_click = None
                 st.rerun()
             if change_btn:
                 for choosen in st.session_state.choossen:
