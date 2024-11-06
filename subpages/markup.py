@@ -23,7 +23,7 @@ if "prev_click" not in st.session_state:
 if "choossen" not in st.session_state:
     st.session_state.choossen = set()
 
-list_categories = ["rock <10cm", "rock >10cm", "crumbly", "block"]
+list_categories = ["empty", "rock <10cm", "rock >10cm", "crumbly", "block"]
 color_map = {
     "empty": "#785353",
     "rock <10cm": "#454b54",
