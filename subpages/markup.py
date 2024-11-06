@@ -25,9 +25,10 @@ if "choossen" not in st.session_state:
 
 list_categories = ["rock <10cm", "rock >10cm", "crumbly", "block"]
 color_map = {
+    "empty": "#785353",
     "rock <10cm": "#454b54",
     "rock >10cm": "#1DA0A5",
-    "crumbly": "#f2c335",
+    "crumbly": "#f062fc",
     "block": "#f28a35"
 }
 
@@ -155,7 +156,7 @@ if hole_id != None:
                 value = float(line.split(":")[-1].strip())
                 list_measurement_values.append(value)
             # categories = lines[-1].strip().split(",")
-            categories = ["rock >10cm"] * len(list_measurement_values)
+            categories = ["empty"] * len(list_measurement_values)
             rock_lengths = [abs(list_measurement_values[i+1] - list_measurement_values[i]) * 100 for i in range(len(list_measurement_values)-1)]
             return rock_lengths, categories
 
@@ -188,6 +189,7 @@ if hole_id != None:
             clear_btn = st.button("Clear")
             if clear_btn:
                 st.session_state.choossen = set()
+                st.session_state.prev_click = None
                 st.rerun()
             if change_btn:
                 for choosen in st.session_state.choossen:
