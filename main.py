@@ -13,6 +13,10 @@ pages = {
     ],
     "Configuration" : [
         st.Page("subpages/global.py", title="Global", icon=":material/settings:"),
+    ],
+    "Data":[
+        st.Page("subpages/rqd.py", title="RQD", icon=":material/stacked_bar_chart:"),
+        st.Page("subpages/recovery.py", title="Recovery", icon=":material/stacked_bar_chart:"),
     ]
 }
 
