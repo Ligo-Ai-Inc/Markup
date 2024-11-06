@@ -72,6 +72,7 @@ sync_btn = st.sidebar.button("Sync")
 usb_export = st.sidebar.button("USB Export")
 if add_holeID_btn:
     add_hole_id()
+st.sidebar.image("assets/labels.png")
 
 if hole_id != None:
     valid = True
