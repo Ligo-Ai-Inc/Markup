@@ -108,8 +108,10 @@ if st.session_state.is_apply and st.session_state.template is not None:
     h, w = tmp.shape[:2]
     row_images = []
     interval = h // nrow
+    cv2.imwrite("template.png", cv2.cvtColor(tmp, cv2.COLOR_RGB2BGR))
     for i in range(nrow):
         img = tmp[i*interval:(i+1)*interval, :]
+        # cv2.imwrite(f"row_{i}.png", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         row_images.append(img)
         st.image(img, use_column_width=True)
     st.session_state.row_images = row_images
