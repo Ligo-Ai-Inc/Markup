@@ -1,34 +1,47 @@
 import streamlit as st
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from st_clickable_images import clickable_images
 import base64
 from io import BytesIO
 import json
 import os
+import yaml
+import cv2
+import numpy as np
 
 measure_btns = []
 scan_folder = "scans"
 os.makedirs(scan_folder, exist_ok=True)
 
+def load_config():
+    if os.path.exists("config.yaml"):
+        with open("config.yaml", "r") as f:
+            st.session_state.config = yaml.load(f, Loader=yaml.FullLoader)
+    else:
+        st.session_state.config = {}
+
+load_config()
+st.session_state.nrow = st.session_state.config.get("nrow", 5)
+
 if "data" not in st.session_state:
     st.session_state.data = {}
 if "pre_loaded" not in st.session_state:
     st.session_state.pre_loaded = False
-if "nrow" not in st.session_state:
-    st.session_state.nrow = 5
 if "box_length" not in st.session_state:
     st.session_state.box_length = 60
 if "prev_click" not in st.session_state:
     st.session_state.prev_click = None
-if "prev_row_click" not in st.session_state:
-    st.session_state.prev_row_click = [-1] * st.session_state.nrow
 if "choossen" not in st.session_state:
     st.session_state.choossen = set()
+if "row_segments" not in st.session_state:
+    st.session_state.row_segments = None
+if "prev_row_click" not in st.session_state:
+    st.session_state.prev_row_click = [-1] * st.session_state.nrow
 
 list_categories = ["empty", "rock <10cm", "rock >10cm", "crumbly", "block"]
 color_map = {
     "empty": "#ff6361",
-    "rock <10cm": "#58508d",
+    "rock <10cm": "#9e61fa",
     "rock >10cm": "#003f5c",
     "crumbly": "#bc5090",
     "block": "#ffa600"
@@ -88,30 +101,114 @@ if hole_id != None:
                     st.toast("This scan is overlapped with the existing scan!")
                     valid = False
                     break
-    
+
     if valid:
+        if "row_segments" in st.session_state and st.session_state.row_segments is not None:
+            os.makedirs(f"{scan_folder}/{hole_id}/{box_from}_{box_to}", exist_ok=True)
+            with open(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json", "w") as f:
+                json.dump(st.session_state.row_segments, f)
+                
+            for k, v in st.session_state.row_segments.items():
+                st.session_state.data[int(k)] = v
+            st.session_state.row_segments = None
+            st.rerun()
+
         st.session_state.box_from = box_from
         st.session_state.box_to = box_to
 
-        os.makedirs(f"{scan_folder}/{hole_id}/{box_from}_{box_to}", exist_ok=True)
-        pre_saved_data = {}
-        if os.path.exists(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json"):
-            with open(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json", "r") as f:
-                try:
-                    pre_saved_data = json.load(f)
-                except:
-                    pass
-
-
-        def gen_images(rock_lengths, categories):
+        def gen_images(rock_lengths, categories, points_coord, row):
             full_width = 1000
             height = 50
             list_images = []
-            for rock_length, category in zip(rock_lengths, categories):
+
+            merged_rock_lengths = []
+            merged_categories = []
+            block_values = []
+            merged_points_coord = []
+            prev_length = None
+
+            for rock_percentage, category, point in zip(rock_lengths, categories, points_coord):
+                rock_length = rock_percentage * box_length
+                if rock_length < 1:
+                    continue
+
+                if category != "empty":
+                    merged_rock_lengths.append(rock_length)
+                    merged_categories.append("block")
+                    block_values.append(float(category))
+                    merged_points_coord.append(point)
+                    prev_length = rock_length
+                    continue
+
+                if len(merged_rock_lengths) == 0 or merged_categories[-1] == "block":
+                    merged_rock_lengths.append(rock_length)
+                    merged_points_coord.append(point)
+                    merged_categories.append("rock <10cm" if rock_length < 10 else "rock >10cm")
+                    block_values.append(0)
+                    prev_length = rock_length
+                    continue
+
+                if rock_length < 10:
+                    if prev_length < 10:
+                        merged_rock_lengths[-1] += rock_length
+                        x1, x2 = merged_points_coord[-1]
+                        x3, x4 = point
+                        minx = min(x1[0], x2[0], x3[0], x4[0])
+                        maxx = max(x1[0], x2[0], x3[0], x4[0])
+                        y = x1[1]
+                        merged_points_coord[-1] = [[minx, y], [maxx, y]]
+                    else:
+                        merged_rock_lengths.append(rock_length)
+                        merged_points_coord.append(point)
+                        merged_categories.append("rock <10cm")
+                        block_values.append(0)
+                else:
+                    merged_rock_lengths.append(rock_length)
+                    merged_points_coord.append(point)
+                    merged_categories.append("rock >10cm")
+                    block_values.append(0)
+
+                prev_length = rock_length
+
+            row_img = st.session_state.row_images[row]
+            half_height = row_img.shape[0] // 4
+            for j in range(len(merged_points_coord)):
+                x1, y1 = merged_points_coord[j][0]
+                x2, y2 = merged_points_coord[j][1]
+                vx = x2 - x1
+                vy = y2 - y1
+                perp_vx = -vy
+                perp_vy = vx
+                random_color = np.random.randint(0, 256, size=3, dtype=np.uint8)
+                random_color = [int(x) for x in random_color]
+
+                x1 = np.max([0, x1])
+
+                p1 = (int(x1), int(y1 - half_height * perp_vy))
+                p2 = (int(x1), int(y1 + half_height * perp_vy))
+                p3 = (int(x2), int(y2 - half_height * perp_vy))
+                p4 = (int(x2), int(y2 + half_height * perp_vy))
+                # cv2.line(row_img, tuple([int(x1), int(y1)]), tuple([int(x2), int(y2)]), random_color, 2)
+                cv2.line(row_img, p1, p2, random_color, 2)
+                cv2.line(row_img, p3, p4, random_color, 2)  
+
+            st.session_state.row_images[row] = row_img
+                
+            for rock_length, category, point in zip(merged_rock_lengths, merged_categories, merged_points_coord):
                 rock_percentage = (rock_length / box_length)
                 width = int(full_width * rock_percentage)
                 image = Image.new("RGB", (width, height), color_map[category])
                 draw = ImageDraw.Draw(image)
+                font_size = 30
+                font = ImageFont.load_default(font_size)
+                text = f"{rock_length:.1f}"
+                text_bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_height = text_bbox[3] - text_bbox[1]
+                text_x = (width - text_width) // 2
+                text_y = (height - text_height) // 2
+                draw.text((text_x, text_y), text, fill="white", font=font)
+
                 draw.line((0, 0, 0, height), fill="black", width=5)
                 draw.line((width-2, 0, width-2, height), fill="black", width=5)
 
@@ -132,8 +229,8 @@ if hole_id != None:
             measure_btns.append(btn)
 
             if i in st.session_state.data:
-                rock_lengths, categories = st.session_state.data[i]
-                list_images = gen_images(rock_lengths, categories)
+                rock_lengths, categories, points_coord = st.session_state.data[i]
+                list_images = gen_images(rock_lengths, categories, points_coord, i)
 
                 with col2.container(border=False):
                     clicked = clickable_images(
@@ -145,7 +242,7 @@ if hole_id != None:
                     list_clicks.append(clicked)
 
             if "row_images" in st.session_state:
-                col2.image(st.session_state.row_images[i], use_column_width=True)
+                col2.image(st.session_state.row_images[i], use_container_width=True)
 
         for row, click in enumerate(list_clicks):
             st.write(f"Row {row+1}: {click}", st.session_state.prev_row_click[row])
@@ -157,38 +254,32 @@ if hole_id != None:
                 # st.session_state.prev_click = f"{row}_{click}"
                 # st.session_state.choossen.add(f"{row}_{click}")
 
-        def load_measurement_data(measure_data):
-            lines = measure_data.split("\n")
-            list_measurement_values = []
-            for line in lines[:]:
-                value = float(line.split(":")[-1].strip())
-                list_measurement_values.append(value)
-            # categories = lines[-1].strip().split(",")
-            categories = ["empty"] * len(list_measurement_values)
-            rock_lengths = [abs(list_measurement_values[i+1] - list_measurement_values[i]) * 100 for i in range(len(list_measurement_values)-1)]
-            return rock_lengths, categories
+        # def load_measurement_data(measure_data):
+        #     lines = measure_data.split("\n")
+        #     list_measurement_values = []
+        #     for line in lines[:]:
+        #         value = float(line.split(":")[-1].strip())
+        #         list_measurement_values.append(value)
+        #     # categories = lines[-1].strip().split(",")
+        #     categories = ["empty"] * len(list_measurement_values)
+        #     rock_lengths = [abs(list_measurement_values[i+1] - list_measurement_values[i]) * 100 for i in range(len(list_measurement_values)-1)]
+        #     return rock_lengths, categories
 
-        @st.dialog("Input measurement")
-        def input_measurement(row):
-            measure_data = st.text_area(f"Measurement row {row}", key=f"measurement_{row}")
-            submit = st.button("Submit", key=f"submit_{row}")
-            if submit:
-                data = load_measurement_data(measure_data)
-                st.session_state.data[row] = data
-                pre_saved_data[row] = data
-                with open(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json", "w") as f:
-                    json.dump(pre_saved_data, f)
-                st.rerun()
+        # @st.dialog("Input measurement")
+        # def input_measurement(row):
+        #     measure_data = st.text_area(f"Measurement row {row}", key=f"measurement_{row}")
+        #     submit = st.button("Submit", key=f"submit_{row}")
+        #     if submit:
+        #         data = load_measurement_data(measure_data)
+        #         st.session_state.data[row] = data
+        #         pre_saved_data[row] = data
+        #         with open(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json", "w") as f:
+        #             json.dump(pre_saved_data, f)
+        #         st.rerun()
 
-        if not st.session_state.pre_loaded:
-            st.session_state.pre_loaded = True
-            for k, v in pre_saved_data.items():
-                st.session_state.data[int(k)] = v
-            st.rerun()
-
-        for i, btn in enumerate(measure_btns):
-            if btn:
-                input_measurement(i)
+        # for i, btn in enumerate(measure_btns):
+        #     if btn:
+        #         input_measurement(i)
 
         if len(st.session_state.choossen) > 0:
             st.write(st.session_state.choossen)
@@ -204,11 +295,11 @@ if hole_id != None:
                     rock_lengths, categories = st.session_state.data[row]
                     categories[click] = category
                     st.session_state.data[row] = [rock_lengths, categories]
-                    pre_saved_data[row] = [rock_lengths, categories]
+                #     pre_saved_data[row] = [rock_lengths, categories]
                 
-                st.session_state.choossen = set()
-                with open(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json", "w") as f:
-                    json.dump(pre_saved_data, f)
+                # st.session_state.choossen = set()
+                # with open(f"{scan_folder}/{hole_id}/{box_from}_{box_to}/save_records.json", "w") as f:
+                #     json.dump(pre_saved_data, f)
                 st.rerun()
     else:
         st.warning("Please enter valid box information!")

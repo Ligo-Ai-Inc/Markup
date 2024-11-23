@@ -3,6 +3,9 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
 from PIL import Image, ImageOps
 import numpy as np
+from models import Processor
+import yaml
+import os
 
 if "points" not in st.session_state:
     st.session_state.points = []
@@ -18,9 +21,30 @@ if "org_picture" not in st.session_state:
     st.session_state.org_picture = None
 if "is_apply" not in st.session_state:
     st.session_state.is_apply = False
+if "row_segments" not in st.session_state:
+    st.session_state.row_segments = None
+if "config" not in st.session_state:
+    st.session_state.config = None
 
-nrow = st.number_input("Number of rows", min_value=1, max_value=5, value=5)
-st.session_state.nrow = nrow
+def load_config():
+    if os.path.exists("config.yaml"):
+        with open("config.yaml", "r") as f:
+            st.session_state.config = yaml.load(f, Loader=yaml.FullLoader)
+    else:
+        st.session_state.config = {}
+
+def save_config():
+    st.session_state.config['nrow'] = st.session_state.nrow
+    with open("config.yaml", "w") as f:
+        yaml.dump(st.session_state.config, f)
+
+load_config()
+nrow = st.number_input("Number of rows", min_value=1, max_value=5, value=st.session_state.config.get("nrow", 5), key="nrow")
+save_config()
+
+if "processor" not in st.session_state:
+    st.session_state.processor = Processor("../sam2/checkpoints/sam2.1_hiera_large.pt", \
+                                           "../sam2/configs/sam2.1/sam2.1_hiera_l.yaml")
 
 configure = st.button("Reset")
 apply_btn = st.button("Apply")
@@ -94,7 +118,7 @@ if not st.session_state.configured:
             st.rerun()
 
 if st.session_state.configured and not st.session_state.is_apply:
-    st.image(st.session_state.picture, use_column_width=True)
+    st.image(st.session_state.picture, use_container_width=True)
 
 if apply_btn and st.session_state.configured:
     st.session_state.is_apply = True
@@ -105,13 +129,11 @@ if st.session_state.is_apply and st.session_state.template is not None:
     if st.session_state.camera_orientation == "Portrait":
         tmp = cv2.rotate(st.session_state.template, cv2.ROTATE_90_CLOCKWISE)
 
-    h, w = tmp.shape[:2]
-    row_images = []
-    interval = h // nrow
-    cv2.imwrite("template.png", cv2.cvtColor(tmp, cv2.COLOR_RGB2BGR))
-    for i in range(nrow):
-        img = tmp[i*interval:(i+1)*interval, :]
-        # cv2.imwrite(f"row_{i}.png", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-        row_images.append(img)
-        st.image(img, use_column_width=True)
+    output_data, row_images = st.session_state.processor.process(tmp, st.session_state.nrow)
     st.session_state.row_images = row_images
+    st.session_state.row_segments = output_data
+    cv2.imwrite("template.png", cv2.cvtColor(tmp, cv2.COLOR_RGB2BGR))
+    for i, row in enumerate(row_images):
+        st.image(row, use_container_width=True)
+    st.session_state.configured = False
+    st.session_state.is_apply = False
