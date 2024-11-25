@@ -3,7 +3,7 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
 from PIL import Image, ImageOps
 import numpy as np
-from models import Processor
+# from models import Processor
 import yaml
 import os
 import requests
