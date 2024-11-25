@@ -6,6 +6,7 @@ import numpy as np
 from models import Processor
 import yaml
 import os
+import requests
 
 if "points" not in st.session_state:
     st.session_state.points = []
@@ -42,9 +43,13 @@ load_config()
 nrow = st.number_input("Number of rows", min_value=1, max_value=5, value=st.session_state.config.get("nrow", 5), key="nrow")
 save_config()
 
-if "processor" not in st.session_state:
-    st.session_state.processor = Processor("../sam2/checkpoints/sam2.1_hiera_large.pt", \
-                                           "../sam2/configs/sam2.1/sam2.1_hiera_l.yaml")
+url = "http://localhost:8000/sam"
+if os.path.exists("tmp.txt"):
+    with open("tmp.txt", "r") as f:
+        url = f.read()
+# if "processor" not in st.session_state:
+#     st.session_state.processor = Processor("../sam2/checkpoints/sam2.1_hiera_large.pt", \
+#                                            "../sam2/configs/sam2.1/sam2.1_hiera_l.yaml")
 
 configure = st.button("Reset")
 apply_btn = st.button("Apply")
@@ -125,14 +130,39 @@ if apply_btn and st.session_state.configured:
     st.rerun()
 
 if st.session_state.is_apply and st.session_state.template is not None:
-    tmp = st.session_state.template.copy()
+    template = st.session_state.template.copy()
     if st.session_state.camera_orientation == "Portrait":
-        tmp = cv2.rotate(st.session_state.template, cv2.ROTATE_90_CLOCKWISE)
+        template = cv2.rotate(st.session_state.template, cv2.ROTATE_90_CLOCKWISE)
+    cv2.imwrite("template.png", cv2.cvtColor(template, cv2.COLOR_RGB2BGR))
 
-    output_data, row_images = st.session_state.processor.process(tmp, st.session_state.nrow)
+    # output_data, row_rects, row_polygons = st.session_state.processor.process(template, st.session_state.nrow)
+    payload = {'nrow': '5'}
+    files=[
+    ('file',('template.png',open('template.png','rb'),'image/jpeg'))
+    ]
+    headers = {}
+
+    response = requests.request("POST", url, headers=headers, data=payload, files=files)
+    response = response.json()
+    output_data = response['output_data']
+    row_rects = response['row_rects']
+    row_polygons = response['row_polygons']
+
+    full_mask = np.zeros_like(template)
+    for i, row in enumerate(row_polygons):
+        for poly in row_polygons[row]:
+            random_color = np.random.randint(0, 256, size=3, dtype=np.uint8)
+            random_color = [int(x) for x in random_color]
+            cv2.fillPoly(full_mask, [np.array(poly).reshape((-1, 1, 2))], random_color)
+    template = cv2.addWeighted(template, 0.7, full_mask, 0.4, 0)
+
+    row_images = []
+    for i, row in enumerate(row_rects):
+        x, y, w, h = row
+        row_images.append(template[y:y+h, x:x+w])
+
     st.session_state.row_images = row_images
     st.session_state.row_segments = output_data
-    cv2.imwrite("template.png", cv2.cvtColor(tmp, cv2.COLOR_RGB2BGR))
     for i, row in enumerate(row_images):
         st.image(row, use_container_width=True)
     st.session_state.configured = False

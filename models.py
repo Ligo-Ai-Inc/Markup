@@ -210,15 +210,15 @@ class Processor:
         for i in range(nrow):
             row_limits.append([i*interval, (i+1)*interval])
 
-        full_mask = np.zeros_like(image)
-        for mask in auto_masks:
-            vis_mask = mask['segmentation'].astype(np.uint8)
-            mask = show_mask(vis_mask, plt.gca(), random_color=True, borders=False)
-            mask *= 255
-            mask = mask.astype(np.uint8)
-            mask = cv2.cvtColor(mask, cv2.COLOR_RGBA2BGR)
-            full_mask += mask
-        image = cv2.addWeighted(image, 0.7, full_mask, 0.4, 0)
+        # full_mask = np.zeros_like(image)
+        # for mask in auto_masks:
+        #     vis_mask = mask['segmentation'].astype(np.uint8)
+        #     mask = show_mask(vis_mask, plt.gca(), random_color=True, borders=False)
+        #     mask *= 255
+        #     mask = mask.astype(np.uint8)
+        #     mask = cv2.cvtColor(mask, cv2.COLOR_RGBA2BGR)
+        #     full_mask += mask
+        # image = cv2.addWeighted(image, 0.7, full_mask, 0.4, 0)
         # cv2.imwrite("tmp.png", image)
 
         kernel = np.array([
@@ -291,7 +291,6 @@ class Processor:
 
         row_points = {}
         row_points_coord = {}
-        row_images = []
 
         for row in range(nrow):
             vx,vy,x,y = lines[row]
@@ -398,6 +397,7 @@ class Processor:
             row_categories[row] = categories
             new_row_points_coord[row] = points_coord
 
+        row_rects = []
         for row in range(nrow):
             new_points_coord = new_row_points_coord[row]
             vx,vy,x,y = lines[row]
@@ -427,12 +427,14 @@ class Processor:
             p4 = (int(start_offset + half_height * perp_vx), int(y + half_height * perp_vy))
 
             rect = np.array([p1, p2, p3, p4], dtype=np.int32)
-            mask = np.zeros_like(image, dtype=np.uint8)
-            cv2.fillPoly(mask, [rect], (255, 255, 255))
-            cropped_image = cv2.bitwise_and(image, mask)
+            # mask = np.zeros_like(image, dtype=np.uint8)
+            # cv2.fillPoly(mask, [rect], (255, 255, 255))
+            # cropped_image = cv2.bitwise_and(image, mask)
             x, y, w, h = cv2.boundingRect(rect)
-            cropped_image = cropped_image[y:y+h, x:x+w]
-            row_images.append(cropped_image)
+            # cropped_image = cropped_image[y:y+h, x:x+w]
+            # row_images.append(cropped_image)
+            row_rects.append([x, y, w, h])
+
 
             new_points_coord_cropped = []
             for coord in new_points_coord:
@@ -463,4 +465,4 @@ class Processor:
             categories = row_categories[row]
             output_data[row] = (rock_percents, categories, new_row_points_coord[row])
 
-        return output_data, row_images
+        return output_data, row_rects, row_polygons
