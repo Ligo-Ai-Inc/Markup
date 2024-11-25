@@ -5,4 +5,5 @@ streamlit-image-coordinates
 opencv-python
 openpyxl
 matplotlib
+pyyaml
 # azure-ai-vision-imageanalysis
