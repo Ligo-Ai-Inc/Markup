@@ -40,7 +40,7 @@ def save_config():
         yaml.dump(st.session_state.config, f)
 
 load_config()
-nrow = st.number_input("Number of rows", min_value=1, max_value=5, value=st.session_state.config.get("nrow", 5), key="nrow")
+nrow = st.number_input("Number of rows", min_value=1, max_value=10, value=st.session_state.config.get("nrow", 5), key="nrow")
 save_config()
 
 url = "http://localhost:8000/sam"
