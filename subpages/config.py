@@ -110,11 +110,11 @@ if not st.session_state.configured:
             x, y, w, h = cv2.boundingRect(srcs)
             st.session_state.camera_orientation = "Landscape" if w > h else "Portrait"
             if st.session_state.camera_orientation == "Portrait":
-                w = int(400 / 5 * nrow)
+                w = int(400 / 5 * st.session_state.nrow)
                 h = 640
             else:
                 w = 640
-                h = int(400 / 5 * nrow)
+                h = int(400 / 5 * st.session_state.nrow)
             dsts = np.array([[0, 0], [w, 0], [w, h], [0, h]]).astype(np.int32)
             M = cv2.getPerspectiveTransform(srcs.astype(np.float32), dsts.astype(np.float32))
             res_img = cv2.warpPerspective(st.session_state.org_picture, M, (w, h))
