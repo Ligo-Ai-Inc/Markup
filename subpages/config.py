@@ -40,8 +40,7 @@ def save_config():
         yaml.dump(st.session_state.config, f)
 
 load_config()
-nrow = st.number_input("Number of rows", min_value=1, max_value=10, value=st.session_state.config.get("nrow", 5), key="nrow")
-save_config()
+st.number_input("Number of rows", min_value=1, max_value=10, value=st.session_state.config.get("nrow", 5), key="nrow", on_change=save_config)
 
 url = "http://localhost:8000/sam"
 if os.path.exists("tmp.txt"):
@@ -137,7 +136,7 @@ if st.session_state.is_apply and st.session_state.template is not None:
     cv2.imwrite("template.png", cv2.cvtColor(template, cv2.COLOR_RGB2BGR))
 
     # output_data, row_rects, row_polygons = st.session_state.processor.process(template, st.session_state.nrow)
-    payload = {'nrow': nrow}
+    payload = {'nrow': st.session_state.nrow}
     files=[
     ('file',('template.png',open('template.png','rb'),'image/jpeg'))
     ]
