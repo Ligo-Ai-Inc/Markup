@@ -170,39 +170,44 @@ class Processor:
         # sam2_checkpoint = "./checkpoints/sam2.1_hiera_large.pt"
         # model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
         sam2_model = build_sam2(model_cfg, model_path, device=device)
-        self.mask_generator = SAM2AutomaticMaskGenerator(sam2_model, points_per_batch=16, points_per_side=32, crop_n_layers=1)
+        self.mask_generator = SAM2AutomaticMaskGenerator(sam2_model, points_per_batch=16, points_per_side=32, crop_n_layers=1, \
+                                                         stability_score_thresh = 0.8)
 
     def process(self, image, nrow):
         org = image.copy()
         auto_masks = self.mask_generator.generate(image)
         auto_masks = sorted(auto_masks, key=lambda x: x['area'], reverse=True)
 
-        jpeg_quality = 100
-        size=1024
-        ocr_inp, scale = resize_img(image, size)
-        ret_code, jpg_buffer = cv2.imencode(".jpg", ocr_inp, [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality])
-        image_data = np.array(jpg_buffer).tobytes()
+        try:
+            jpeg_quality = 100
+            size=1024
+            ocr_inp, scale = resize_img(image, size)
+            ret_code, jpg_buffer = cv2.imencode(".jpg", ocr_inp, [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality])
+            image_data = np.array(jpg_buffer).tobytes()
 
-        result = infer_ocr(image_data)
+            result = infer_ocr(image_data)
 
-        ocr = result.as_dict()
-        text_match = {}
-        if len(ocr['readResult']['blocks']) > 0:
-            block = ocr['readResult']['blocks'][0]
-            for line in block['lines']:
-                box = np.array([(data['x'], data['y']) for data in line['boundingPolygon']])
-                xmin = np.min(box[:, 0]) / scale
-                ymin = np.min(box[:, 1]) / scale
-                xmax = np.max(box[:, 0]) / scale
-                ymax = np.max(box[:, 1]) / scale
+            ocr = result.as_dict()
+            text_match = {}
+            if len(ocr['readResult']['blocks']) > 0:
+                block = ocr['readResult']['blocks'][0]
+                for line in block['lines']:
+                    box = np.array([(data['x'], data['y']) for data in line['boundingPolygon']])
+                    xmin = np.min(box[:, 0]) / scale
+                    ymin = np.min(box[:, 1]) / scale
+                    xmax = np.max(box[:, 0]) / scale
+                    ymax = np.max(box[:, 1]) / scale
 
-                regex = r"[^\d.,]"
-                subst = ""
-                try:
-                    depth = float(re.sub(regex, subst, line['text'], 0, re.MULTILINE).replace(",", "."))
-                    text_match[depth] = [xmin, ymin, xmax, ymax]
-                except:
-                    pass
+                    regex = r"[^\d.,]"
+                    subst = ""
+                    try:
+                        depth = float(re.sub(regex, subst, line['text'], 0, re.MULTILINE).replace(",", "."))
+                        text_match[depth] = [xmin, ymin, xmax, ymax]
+                    except:
+                        pass
+        except:
+            text_match = {}
+            
         h, w = image.shape[:2]
         interval = h // nrow
 

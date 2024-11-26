@@ -85,7 +85,7 @@ if not st.session_state.configured:
         picture = cv2.resize(picture, (1080, int(picture.shape[0] * scale_factor)))
         st.session_state.picture = picture
 
-        st.session_state.camera_orientation = "Landscape" if st.session_state.org_picture.shape[1] > st.session_state.org_picture.shape[0] else "Portrait"
+        # st.session_state.camera_orientation = "Landscape" if st.session_state.org_picture.shape[1] > st.session_state.org_picture.shape[0] else "Portrait"
         vis_points = np.array([[int(x*st.session_state.picture.shape[1]), int(y*st.session_state.picture.shape[0])] for x, y in st.session_state.points]).astype(np.int32)
         vis_points = vis_points.reshape((-1, 1, 2))
         if len(vis_points) > 1:
@@ -103,19 +103,20 @@ if not st.session_state.configured:
                 st.session_state.prev_point = [x, y]
                 st.session_state.points.append([x, y])
                 st.rerun()
-        
-        if st.session_state.camera_orientation == "Portrait":
-            w = 400
-            h = 640
-        else:
-            w = 640
-            h = 400
 
         srcs = np.array([[int(x*st.session_state.org_picture.shape[1]), int(y*st.session_state.org_picture.shape[0])] for x, y in st.session_state.points]).astype(np.int32)
         srcs = srcs.reshape((-1, 1, 2))
-        dsts = np.array([[0, 0], [w, 0], [w, h], [0, h]]).astype(np.int32)
 
         if len(srcs) == 4:
+            x, y, w, h = cv2.boundingRect(srcs)
+            st.session_state.camera_orientation = "Landscape" if w > h else "Portrait"
+            if st.session_state.camera_orientation == "Portrait":
+                w = int(400 / 5 * nrow)
+                h = 640
+            else:
+                w = 640
+                h = int(400 / 5 * nrow)
+            dsts = np.array([[0, 0], [w, 0], [w, h], [0, h]]).astype(np.int32)
             M = cv2.getPerspectiveTransform(srcs.astype(np.float32), dsts.astype(np.float32))
             res_img = cv2.warpPerspective(st.session_state.org_picture, M, (w, h))
             st.session_state.configured = True
@@ -136,7 +137,7 @@ if st.session_state.is_apply and st.session_state.template is not None:
     cv2.imwrite("template.png", cv2.cvtColor(template, cv2.COLOR_RGB2BGR))
 
     # output_data, row_rects, row_polygons = st.session_state.processor.process(template, st.session_state.nrow)
-    payload = {'nrow': '5'}
+    payload = {'nrow': nrow}
     files=[
     ('file',('template.png',open('template.png','rb'),'image/jpeg'))
     ]
@@ -159,6 +160,8 @@ if st.session_state.is_apply and st.session_state.template is not None:
     row_images = []
     for i, row in enumerate(row_rects):
         x, y, w, h = row
+        x = max(0, x)
+        y = max(0, y)
         row_images.append(template[y:y+h, x:x+w])
 
     st.session_state.row_images = row_images
