@@ -3,7 +3,11 @@ st-clickable-images
 pillow
 streamlit-image-coordinates
 opencv-python
+streamlit-camera-input-live
 openpyxl
 matplotlib
-pyyaml
-# azure-ai-vision-imageanalysis
+azure-ai-vision-imageanalysis
+fastapi
+uvicorn
+python-multipart
+runpod

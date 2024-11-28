@@ -1,5 +1,6 @@
 import os
 import numpy as np
+np.random.seed(3)
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -24,6 +25,7 @@ from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.ai.vision.imageanalysis.models import VisualFeatures
 from azure.core.credentials import AzureKeyCredential
 import re
+
 
 endpoint = "https://core-ocr.cognitiveservices.azure.com/"
 key = "33947f900faf438c953abcd092db2be5"
@@ -175,6 +177,7 @@ class Processor:
 
     def process(self, image, nrow):
         org = image.copy()
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         auto_masks = self.mask_generator.generate(image)
         auto_masks = sorted(auto_masks, key=lambda x: x['area'], reverse=True)
 
@@ -223,8 +226,8 @@ class Processor:
         #     mask = mask.astype(np.uint8)
         #     mask = cv2.cvtColor(mask, cv2.COLOR_RGBA2BGR)
         #     full_mask += mask
-        # image = cv2.addWeighted(image, 0.7, full_mask, 0.4, 0)
-        # cv2.imwrite("tmp.png", image)
+        # # image = cv2.addWeighted(image, 0.7, full_mask, 0.4, 0)
+        # cv2.imwrite("tmp.png", full_mask)
 
         kernel = np.array([
             [0, 0, 0, 0, 0],
@@ -256,6 +259,9 @@ class Processor:
                 if w < 10 or h < 10:
                     continue
 
+                if w > image.shape[1] * 9 / 10:
+                    continue
+
                 yc = y + h // 2
                 if yc >= row_start and yc <= row_end:
                     new_mask = np.zeros_like(image)
@@ -265,9 +271,8 @@ class Processor:
                         continue
                     row_mask += new_mask
                     rocks.append(max_contour)
-                    # cv2.drawContours(image, [max_contour], -1, (0, 255, 0), thickness=2)
 
-            #         tmp = cv2.imread(path)
+            #         tmp = org.copy()
             #         tmp = cv2.drawContours(tmp, [max_contour], -1, (0, 255, 0), thickness=2)
             #         cv2.imshow("tmp", tmp)
             #         cv2.waitKey(0)

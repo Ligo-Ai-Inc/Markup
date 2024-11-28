@@ -7,6 +7,9 @@ import numpy as np
 import yaml
 import os
 import requests
+import base64
+from io import BytesIO
+import json
 
 if "points" not in st.session_state:
     st.session_state.points = []
@@ -42,10 +45,11 @@ def save_config():
 load_config()
 st.number_input("Number of rows", min_value=1, max_value=10, value=st.session_state.config.get("nrow", 5), key="nrow", on_change=save_config)
 
-url = "http://localhost:8000/sam"
-if os.path.exists("tmp.txt"):
-    with open("tmp.txt", "r") as f:
-        url = f.read()
+url = "https://api.runpod.ai/v2/mngx7n8ouditwe/run"
+get_url = "https://api.runpod.ai/v2/mngx7n8ouditwe/status/"
+# if os.path.exists("tmp.txt"):
+#     with open("tmp.txt", "r") as f:
+#         url = f.read()
 # if "processor" not in st.session_state:
 #     st.session_state.processor = Processor("../sam2/checkpoints/sam2.1_hiera_large.pt", \
 #                                            "../sam2/configs/sam2.1/sam2.1_hiera_l.yaml")
@@ -135,37 +139,60 @@ if st.session_state.is_apply and st.session_state.template is not None:
         template = cv2.rotate(st.session_state.template, cv2.ROTATE_90_CLOCKWISE)
     cv2.imwrite("template.png", cv2.cvtColor(template, cv2.COLOR_RGB2BGR))
 
+    buffered = BytesIO()
+    Image.fromarray(template).save(buffered, format="PNG")
+    template_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+
     # output_data, row_rects, row_polygons = st.session_state.processor.process(template, st.session_state.nrow)
-    payload = {'nrow': st.session_state.nrow}
-    files=[
-    ('file',('template.png',open('template.png','rb'),'image/jpeg'))
-    ]
-    headers = {}
+    payload = json.dumps({
+        "input": {
+            "image_data": template_base64,
+            "nrow": st.session_state.nrow
+        }
+    })
+    # files=[
+    #     ('file',('template.png',open('template.png','rb'),'image/jpeg'))
+    # ]
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer rpa_VPW16C77ML2IB028UWF6VD11DZTJM6M6NK7UC6KV1d0q4x'
+    }
 
-    response = requests.request("POST", url, headers=headers, data=payload, files=files)
+    response = requests.request("POST", url, headers=headers, data=payload)
     response = response.json()
-    output_data = response['output_data']
-    row_rects = response['row_rects']
-    row_polygons = response['row_polygons']
+    
+    job_id = response['id']
+    while True:
+        st.spinner(text="In progress...")
+        response = requests.request("GET", get_url + job_id, headers=headers)
+        response = response.json()
+        if response['status'] == 'COMPLETED':
+            data = response['output']
+            output_data = data['output_data']
+            row_rects = data['row_rects']
+            row_polygons = data['row_polygons']
 
-    full_mask = np.zeros_like(template)
-    for i, row in enumerate(row_polygons):
-        for poly in row_polygons[row]:
-            random_color = np.random.randint(0, 256, size=3, dtype=np.uint8)
-            random_color = [int(x) for x in random_color]
-            cv2.fillPoly(full_mask, [np.array(poly).reshape((-1, 1, 2))], random_color)
-    template = cv2.addWeighted(template, 0.7, full_mask, 0.4, 0)
+            full_mask = np.zeros_like(template)
+            for i, row in enumerate(row_polygons):
+                for poly in row_polygons[row]:
+                    random_color = np.random.randint(0, 256, size=3, dtype=np.uint8)
+                    random_color = [int(x) for x in random_color]
+                    cv2.fillPoly(full_mask, [np.array(poly).reshape((-1, 1, 2))], random_color)
+            template = cv2.addWeighted(template, 0.7, full_mask, 0.5, 0)
 
-    row_images = []
-    for i, row in enumerate(row_rects):
-        x, y, w, h = row
-        x = max(0, x)
-        y = max(0, y)
-        row_images.append(template[y:y+h, x:x+w])
+            row_images = []
+            for i, row in enumerate(row_rects):
+                x, y, w, h = row
+                x = max(0, x)
+                y = max(0, y)
+                row_images.append(template[y:y+h, x:x+w])
 
-    st.session_state.row_images = row_images
-    st.session_state.row_segments = output_data
-    for i, row in enumerate(row_images):
-        st.image(row, use_container_width=True)
-    st.session_state.configured = False
-    st.session_state.is_apply = False
+            st.session_state.row_images = row_images
+            st.session_state.row_segments = output_data
+            for i, row in enumerate(row_images):
+                st.image(row, use_container_width=True)
+            st.session_state.configured = False
+            st.session_state.is_apply = False
+            break
+    
