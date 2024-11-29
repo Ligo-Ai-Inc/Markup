@@ -42,8 +42,6 @@ def save_config():
     with open("config.yaml", "w") as f:
         yaml.dump(st.session_state.config, f)
 
-load_config()
-st.number_input("Number of rows", min_value=1, max_value=10, value=st.session_state.config.get("nrow", 5), key="nrow", on_change=save_config)
 
 url = "https://api.runpod.ai/v2/mngx7n8ouditwe/run"
 get_url = "https://api.runpod.ai/v2/mngx7n8ouditwe/status/"
@@ -54,18 +52,6 @@ get_url = "https://api.runpod.ai/v2/mngx7n8ouditwe/status/"
 #     st.session_state.processor = Processor("../sam2/checkpoints/sam2.1_hiera_large.pt", \
 #                                            "../sam2/configs/sam2.1/sam2.1_hiera_l.yaml")
 
-configure = st.button("Reset")
-apply_btn = st.button("Apply")
-
-if configure:
-    st.session_state.configured = False
-    st.session_state.template = None
-    st.session_state.points = []
-    st.session_state.picture = None
-    st.session_state.org_picture = None
-    st.session_state.camera_orientation = None
-    st.session_state.is_apply = False
-    st.rerun()
 
 if not st.session_state.configured:
 
@@ -126,6 +112,21 @@ if not st.session_state.configured:
             st.session_state.template = res_img
             st.rerun()
 
+load_config()
+st.number_input("Number of rows", min_value=1, max_value=10, value=st.session_state.config.get("nrow", 5), key="nrow", on_change=save_config)
+configure = st.button("Reset")
+apply_btn = st.button("Apply")
+
+if configure:
+    st.session_state.configured = False
+    st.session_state.template = None
+    st.session_state.points = []
+    st.session_state.picture = None
+    st.session_state.org_picture = None
+    st.session_state.camera_orientation = None
+    st.session_state.is_apply = False
+    st.rerun()
+    
 if st.session_state.configured and not st.session_state.is_apply:
     st.image(st.session_state.picture, use_container_width=True)
 
@@ -195,4 +196,3 @@ if st.session_state.is_apply and st.session_state.template is not None:
             st.session_state.configured = False
             st.session_state.is_apply = False
             break
-    
