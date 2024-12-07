@@ -97,20 +97,7 @@ if not st.session_state.configured:
         srcs = srcs.reshape((-1, 1, 2))
 
         if len(srcs) == 4:
-            x, y, w, h = cv2.boundingRect(srcs)
-            st.session_state.camera_orientation = "Landscape" if w > h else "Portrait"
-            if st.session_state.camera_orientation == "Portrait":
-                w = int(400 / 5 * st.session_state.nrow)
-                h = 640
-            else:
-                w = 640
-                h = int(400 / 5 * st.session_state.nrow)
-            dsts = np.array([[0, 0], [w, 0], [w, h], [0, h]]).astype(np.int32)
-            M = cv2.getPerspectiveTransform(srcs.astype(np.float32), dsts.astype(np.float32))
-            res_img = cv2.warpPerspective(st.session_state.org_picture, M, (w, h))
             st.session_state.configured = True
-            st.session_state.template = res_img
-            st.rerun()
 
 load_config()
 st.number_input("Number of rows", min_value=1, max_value=10, value=st.session_state.config.get("nrow", 5), key="nrow", on_change=save_config)
@@ -128,7 +115,22 @@ if configure:
     st.rerun()
     
 if st.session_state.configured and not st.session_state.is_apply:
-    st.image(st.session_state.picture, use_container_width=True)
+    srcs = np.array([[int(x*st.session_state.org_picture.shape[1]), int(y*st.session_state.org_picture.shape[0])] for x, y in st.session_state.points]).astype(np.int32)
+    srcs = srcs.reshape((-1, 1, 2))
+    if len(srcs) == 4:
+        x, y, w, h = cv2.boundingRect(srcs)
+        st.session_state.camera_orientation = "Landscape" if w > h else "Portrait"
+        if st.session_state.camera_orientation == "Portrait":
+            w = int(400 / 5 * st.session_state.nrow)
+            h = 640
+        else:
+            w = 640
+            h = int(400 / 5 * st.session_state.nrow)
+        dsts = np.array([[0, 0], [w, 0], [w, h], [0, h]]).astype(np.int32)
+        M = cv2.getPerspectiveTransform(srcs.astype(np.float32), dsts.astype(np.float32))
+        res_img = cv2.warpPerspective(st.session_state.org_picture, M, (w, h))
+        st.session_state.template = res_img
+    st.image(st.session_state.template, use_container_width=True)
 
 if apply_btn and st.session_state.configured:
     st.session_state.is_apply = True
